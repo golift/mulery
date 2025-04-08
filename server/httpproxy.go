@@ -63,7 +63,7 @@ func (c *Connection) proxyRequest(resp http.ResponseWriter, req *http.Request) e
 		return err
 	}
 
-	// Notify read() that we are done reading the response body, and this connection can be re-used.
+	// Notify read() that we are done reading the response body, and this connection can be reused.
 	c.Give()
 
 	return nil
