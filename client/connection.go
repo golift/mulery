@@ -100,7 +100,6 @@ func (c *Connection) keepAlive() {
 			err := c.ws.WriteControl(websocket.PingMessage, []byte{}, tick.Add(keepAliveTimeout))
 			if err != nil {
 				c.pool.client.Errorf("[%s] Tunnel keep-alive failure: %v", c.id, err)
-				return
 			}
 		case status, ok := <-c.setStatus:
 			if !ok {
