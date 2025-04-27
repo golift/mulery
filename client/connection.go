@@ -51,7 +51,7 @@ func NewConnection(pool *Pool) *Connection {
 
 // Connect to the remote server using an HTTP websocket.
 func (c *Connection) Connect(ctx context.Context) error {
-	c.pool.client.Debugf("[%s] Connecting to tunnel @ %s", c.id, c.pool.target)
+	c.pool.client.Printf("[%s] Connecting to tunnel @ %s", c.id, c.pool.target)
 
 	var err error
 	// Create a new TCP(/TLS) connection (no use of net.http).
@@ -100,6 +100,7 @@ func (c *Connection) keepAlive() {
 			err := c.ws.WriteControl(websocket.PingMessage, []byte{}, tick.Add(keepAliveTimeout))
 			if err != nil {
 				c.pool.client.Errorf("[%s] Tunnel keep-alive failure: %v", c.id, err)
+				c.ws.Close()
 			}
 		case status, ok := <-c.setStatus:
 			if !ok {
@@ -129,7 +130,10 @@ func (c *Connection) Status() int {
 // As in the server code there is no buffering of HTTP request/response body.
 // As in the server if any error occurs the connection is closed/thrown.
 func (c *Connection) serve() {
-	defer c.pool.Remove(c)
+	defer func() {
+		c.pool.Remove(c)
+		c.pool.client.Printf("[%s] Disconnecting tunnel @ %s", c.id, c.pool.target)
+	}()
 
 	for {
 		if !c.serveHandler() {
