@@ -12,14 +12,14 @@ import (
 // SetupLogs starts the logs rotation and sets logger output to the configured file(s).
 // You must call this before calling Start to setup logs, or things will panic.
 //
-//nolint:gomnd
+//nolint:mnd
 func (c *Config) SetupLogs() {
 	c.httpLog = log.New(os.Stdout, "", 0)
 
 	if c.HTTPLog != "" && c.HTTPLogMB > 0 {
 		c.httpLog.SetOutput(rotatorr.NewMust(&rotatorr.Config{
 			Filepath: c.HTTPLog,
-			FileSize: c.HTTPLogMB * 1024 * 1024,
+			FileSize: c.HTTPLogMB * 1024 * 1024, // 1 MB
 			FileMode: 0o644,
 			Rotatorr: &timerotator.Layout{FileCount: c.HTTPLogs},
 		}))

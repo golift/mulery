@@ -43,11 +43,11 @@ func (s *Server) HandleRequest(name string) http.Handler {
 
 	return s.metrics.Wrap(func(resp http.ResponseWriter, req *http.Request) {
 		// Receive requests to be proxied; parse destination URL if it exists (otherwise use the incoming url).
-		if dstURL := req.Header.Get("X-PROXY-DESTINATION"); dstURL != "" {
+		if dstURL := req.Header.Get("X-Proxy-Destination"); dstURL != "" {
 			var err error
 			// r.URL is used in proxyRequest().
 			if req.URL, err = url.Parse(dstURL); err != nil {
-				s.ProxyError(resp, req, fmt.Errorf("parsing X-PROXY-DESTINATION header: %w", err), "")
+				s.ProxyError(resp, req, fmt.Errorf("parsing X-Proxy-Destination header: %w", err), "")
 				return
 			}
 		}
