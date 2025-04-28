@@ -115,7 +115,7 @@ func (p *Pool) connector(ctx context.Context, now time.Time) {
 	p.lastTry = now
 	poolSize := p.size()
 	// Create enough connection to fill the pool.
-	toCreate := p.client.Config.PoolIdleSize - poolSize.Idle
+	toCreate := p.client.PoolIdleSize - poolSize.Idle
 
 	// Create only one connection if the pool is empty.
 	if poolSize.Total == 0 && toCreate < 1 {
@@ -123,8 +123,8 @@ func (p *Pool) connector(ctx context.Context, now time.Time) {
 	}
 
 	// Open at most PoolMaxSize connections.
-	if poolSize.Total+toCreate > p.client.Config.PoolMaxSize {
-		toCreate = p.client.Config.PoolMaxSize - poolSize.Total
+	if poolSize.Total+toCreate > p.client.PoolMaxSize {
+		toCreate = p.client.PoolMaxSize - poolSize.Total
 	}
 
 	p.fillConnectionPool(ctx, now, toCreate)

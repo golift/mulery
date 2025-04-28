@@ -85,7 +85,7 @@ func LoadConfigFile(path string) (*Config, error) {
 		client: &http.Client{},
 	}
 	config.Config.KeyValidator = config.KeyValidator
-	config.Config.Logger = config
+	config.Logger = config
 
 	if err := cnfgfile.Unmarshal(config, path); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration: %w", err)
@@ -124,7 +124,9 @@ func (c *Config) Start() {
 		certmagic.DefaultACME.Agreed = true
 		certmagic.Default.Storage = &certmagic.FileStorage{Path: c.CacheDir}
 		certmagic.DefaultACME.DNS01Solver = &certmagic.DNS01Solver{
-			DNSProvider: &cloudflare.Provider{APIToken: c.CFToken},
+			DNSManager: certmagic.DNSManager{
+				DNSProvider: &cloudflare.Provider{APIToken: c.CFToken},
+			},
 		}
 
 		var err error
@@ -137,7 +139,7 @@ func (c *Config) Start() {
 		ErrorLog:    c.log,
 		Addr:        c.ListenAddr,
 		Handler:     smx,
-		ReadTimeout: c.Config.Timeout,
+		ReadTimeout: c.Timeout,
 		TLSConfig:   tlsConfig,
 	}
 
@@ -153,7 +155,7 @@ func (c *Config) Start() {
 // We only use this tunnel to talk to 1 app, so the api paths we hit are bounded.
 // This method chops the end off to avoid unbounded items in the URI.
 func (c *Config) parsePath() http.HandlerFunc { //nolint:cyclop
-	//nolint:gomnd // Examples:
+	//nolint:mnd // Examples:
 	//   /api/radarr/1/get/<random>
 	//   /api/triggers/command/<random>
 	return func(resp http.ResponseWriter, req *http.Request) {

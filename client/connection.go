@@ -45,7 +45,7 @@ func NewConnection(pool *Pool) *Connection {
 		status:    CONNECTING,
 		setStatus: make(chan int),
 		getStatus: make(chan int),
-		id:        strconv.Itoa(rand.Intn(899) + 100), //nolint:gomnd,gosec
+		id:        strconv.Itoa(rand.Intn(899) + 100), //nolint:mnd,gosec
 	}
 }
 
@@ -71,9 +71,9 @@ func (c *Connection) Connect(ctx context.Context) error {
 	// Send the greeting message with proxy id and desired pool size.
 	greeting := &mulch.Handshake{
 		Name:      c.pool.client.Name,
-		ID:        c.pool.client.Config.ID,
-		Size:      c.pool.client.Config.PoolIdleSize,
-		MaxSize:   c.pool.client.Config.PoolMaxSize,
+		ID:        c.pool.client.ID,
+		Size:      c.pool.client.PoolIdleSize,
+		MaxSize:   c.pool.client.PoolMaxSize,
 		ClientIDs: c.pool.client.ClientIDs,
 	}
 
@@ -181,9 +181,9 @@ func (c *Connection) serveHandler() bool {
 	req := mulch.UnserializeHTTPRequest(httpRequest)
 	handler := c.customHandler
 
-	if c.pool.client.Config.Handler == nil {
+	if c.pool.client.Handler == nil {
 		handler = c.defaultHandler
-		c.pool.client.Printf("[%s] %s %s", c.pool.client.Config.ID, req.Method, req.URL.String())
+		c.pool.client.Printf("[%s] %s %s", c.pool.client.ID, req.Method, req.URL.String())
 	}
 
 	// Pipe request body.

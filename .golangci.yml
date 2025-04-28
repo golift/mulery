@@ -1,23 +1,21 @@
+version: "2"
 linters:
-  enable-all: true
+  default: all
   disable:
-  # deprecated
-    - maligned
-    - scopelint
-    - interfacer
-    - golint
-    - exhaustivestruct
-    - nosnakecase
-    - structcheck
-    - deadcode
-    - varcheck
-    - ifshort
-    # unused
-    - exhaustruct
+    - depguard
     - exhaustive
+    - exhaustruct
     - nlreturn
     - tagalign
-    - depguard
-
-run:
-  timeout: 5m
+    - funcorder
+  exclusions:
+    presets:
+      - comments
+      - legacy
+      - std-error-handling
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
