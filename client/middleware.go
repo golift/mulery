@@ -27,7 +27,7 @@ func (c *Connection) customHandler(req *http.Request) bool {
 		conn: c,
 	}
 
-	c.pool.client.Config.Handler(writer, req)
+	c.pool.client.Handler(writer, req)
 
 	if writer.body != nil {
 		writer.body.Close()

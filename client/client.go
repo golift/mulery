@@ -113,8 +113,8 @@ func NewClient(config *Config) *Client {
 	if config.RoundRobinConfig != nil {
 		if len(config.Targets) <= 1 {
 			config.RoundRobinConfig = nil
-		} else if config.RoundRobinConfig.RetryInterval == 0 {
-			config.RoundRobinConfig.RetryInterval = time.Minute
+		} else if config.RetryInterval == 0 {
+			config.RetryInterval = time.Minute
 		}
 	}
 
@@ -132,7 +132,7 @@ func NewClient(config *Config) *Client {
 
 // Start the Proxy.
 func (c *Client) Start(ctx context.Context) {
-	if c.Config.RoundRobinConfig != nil {
+	if c.RoundRobinConfig != nil {
 		c.startOnePool(ctx)
 	} else {
 		c.startAllPools(ctx)
@@ -140,23 +140,23 @@ func (c *Client) Start(ctx context.Context) {
 }
 
 func (c *Client) startAllPools(ctx context.Context) {
-	for _, target := range c.Config.Targets {
+	for _, target := range c.Targets {
 		if c.pools[target] != nil && !c.pools[target].shutdown {
 			panic("Attempt to overwrite active mulery client pool!")
 		}
 
-		c.pools[target] = StartPool(ctx, c, target, c.Config.SecretKey)
+		c.pools[target] = StartPool(ctx, c, target, c.SecretKey)
 	}
 }
 
 // startOnePool happens in round robin mode.
 func (c *Client) startOnePool(ctx context.Context) {
 	c.target++
-	if c.target >= len(c.Config.Targets) {
+	if c.target >= len(c.Targets) {
 		c.target = 0
 	}
 
-	target := c.Config.Targets[c.target]
+	target := c.Targets[c.target]
 	c.lastConn = time.Now()
 
 	if c.pools[target] != nil && !c.pools[target].shutdown {
@@ -167,7 +167,7 @@ func (c *Client) startOnePool(ctx context.Context) {
 		c.Callback(ctx, target)
 	}
 
-	c.pools[target] = StartPool(ctx, c, target, c.Config.SecretKey)
+	c.pools[target] = StartPool(ctx, c, target, c.SecretKey)
 }
 
 // restart calls shutdown and start inside a go routine.

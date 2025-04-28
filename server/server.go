@@ -142,17 +142,17 @@ func (s *Server) saveMetrics(totals *PoolSize, connsPerPool map[int]int) {
 	}
 
 	// we have to limit the label values to something...
-	const max = 11
+	const maximum = 11
 
 	for conns, pools := range connsPerPool {
-		if conns > max {
-			connsPerPool[max] += pools
+		if conns > maximum {
+			connsPerPool[maximum] += pools
 		}
 	}
 
-	for conns := 1; conns <= max; conns++ {
+	for conns := 1; conns <= maximum; conns++ {
 		label := fmt.Sprintf("%02d", conns)
-		if conns >= max {
+		if conns >= maximum {
 			label += "+"
 		}
 
