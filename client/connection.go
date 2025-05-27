@@ -162,10 +162,7 @@ func (c *Connection) serveHandler() bool {
 
 	_, jsonRequest, err := c.ws.ReadMessage()
 	if err != nil {
-		if !c.pool.shutdown {
-			c.pool.client.Errorf("[%s] While waiting for a tunnel request: %v", c.id, err)
-		}
-
+		c.pool.client.Errorf("[%s] While waiting for a tunnel request: %v", c.id, err)
 		return false
 	}
 

@@ -72,16 +72,11 @@ func (p *Pool) Start(ctx context.Context) {
 			close(p.repSize)
 			close(p.conChan)
 			close(p.repChan)
+			close(p.done)
 		}()
 
 		for {
 			select {
-			case <-p.done:
-				for _, conn := range p.connections {
-					conn.Close()
-				}
-
-				return
 			case now := <-ticker.C:
 				p.connector(ctx, now)
 			case <-p.getSize:
@@ -94,6 +89,12 @@ func (p *Pool) Start(ctx context.Context) {
 				}
 
 				p.repChan <- struct{}{}
+			case <-p.done:
+				for _, conn := range p.connections {
+					conn.Close()
+				}
+
+				return
 			}
 		}
 	}()
@@ -184,8 +185,12 @@ func (p *Pool) remove(connection *Connection) {
 // Shutdown and close all connections in the pool.
 func (p *Pool) Shutdown() {
 	if !p.shutdown {
+		// Send a signal to the connector to close all connections.
+		p.done <- struct{}{}
+		// Wait for the pool to close all connections.
+		<-p.done
+		// Set the shutdown flag to true.
 		p.shutdown = true
-		close(p.done)
 	}
 }
 
