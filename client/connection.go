@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,8 +18,9 @@ import (
 
 // Status of a Connection.
 const (
-	UNKNOWN    = -1
-	CONNECTING = iota
+	UNKNOWN = iota - 1
+	SHUTDOWN
+	CONNECTING
 	IDLE
 	RUNNING
 )
@@ -35,6 +37,7 @@ type Connection struct {
 	status    int
 	setStatus chan int
 	getStatus chan int
+	wg        sync.WaitGroup
 	id        string
 }
 
@@ -45,6 +48,7 @@ func NewConnection(pool *Pool) *Connection {
 		status:    CONNECTING,
 		setStatus: make(chan int),
 		getStatus: make(chan int),
+		wg:        sync.WaitGroup{},
 		id:        strconv.Itoa(rand.Intn(899) + 100), //nolint:mnd,gosec
 	}
 }
@@ -83,6 +87,7 @@ func (c *Connection) Connect(ctx context.Context) error {
 	}
 
 	// We are connected to the server, now start a go routine that waits for incoming server requests.
+	c.wg.Add(1)
 	go c.serve()
 	go c.keepAlive()
 
@@ -92,7 +97,10 @@ func (c *Connection) Connect(ctx context.Context) error {
 // Keep connection alive.
 func (c *Connection) keepAlive() {
 	ticker := time.NewTicker(keepAliveInterval)
-	defer ticker.Stop()
+	defer func() {
+		ticker.Stop()
+		c.getStatus <- SHUTDOWN
+	}()
 
 	for {
 		select {
@@ -100,11 +108,17 @@ func (c *Connection) keepAlive() {
 			err := c.ws.WriteControl(websocket.PingMessage, []byte{}, tick.Add(keepAliveTimeout))
 			if err != nil {
 				c.pool.client.Errorf("[%s] Tunnel keep-alive failure: %v", c.id, err)
-				c.ws.Close()
 			}
 		case status, ok := <-c.setStatus:
 			if !ok {
 				return
+			}
+
+			if status == SHUTDOWN {
+				ticker.Stop()
+				c.getStatus <- SHUTDOWN
+
+				continue
 			}
 
 			if status == UNKNOWN { // signal to return status.
@@ -133,6 +147,14 @@ func (c *Connection) serve() {
 	defer func() {
 		c.pool.Remove(c)
 		c.pool.client.Printf("[%s] Disconnecting tunnel @ %s", c.id, c.pool.target)
+		// Stop the keep alive ticker.
+		close(c.setStatus)
+		// Wait for it to finish.
+		<-c.getStatus
+		// Close the status channel.
+		close(c.getStatus)
+		// Tell Close() we're done.
+		c.wg.Done()
 	}()
 
 	for {
@@ -262,7 +284,11 @@ func (c *Connection) error(msg string) bool {
 
 // Close the ws/tcp connection.
 func (c *Connection) Close() {
-	c.ws.Close()
-	close(c.setStatus)
-	close(c.getStatus)
+	// Stop the keep alive ticker.
+	c.setStatus <- SHUTDOWN
+	<-c.getStatus
+	// Close the websocket connection.
+	_ = c.ws.Close()
+	// Wait for both go routines to finish.
+	c.wg.Wait()
 }

@@ -13,7 +13,7 @@ type Pool struct {
 	secretKey   string
 	connections []*Connection
 	disconnects int
-	done        chan struct{}
+	done        chan bool
 	getSize     chan struct{}
 	repSize     chan *PoolSize
 	conChan     chan *Connection
@@ -25,14 +25,14 @@ type Pool struct {
 
 // PoolSize represent the number of open connections per status.
 type PoolSize struct {
-	Disconnects int
-	Connecting  int
-	Idle        int
-	Running     int
-	Total       int
-	LastConn    time.Time
-	LastTry     time.Time
-	Active      bool
+	Disconnects int       `json:"disconnects"`
+	Connecting  int       `json:"connecting"`
+	Idle        int       `json:"idle"`
+	Running     int       `json:"running"`
+	Total       int       `json:"total"`
+	LastConn    time.Time `json:"lastConn"`
+	LastTry     time.Time `json:"lastTry"`
+	Active      bool      `json:"active"`
 }
 
 // StartPool creates and starts a pool in one command.
@@ -50,7 +50,7 @@ func NewPool(client *Client, target string, secretKey string) *Pool {
 		target:      target,
 		secretKey:   secretKey,
 		connections: []*Connection{},
-		done:        make(chan struct{}),
+		done:        make(chan bool),
 		getSize:     make(chan struct{}),
 		repSize:     make(chan *PoolSize),
 		conChan:     make(chan *Connection),
@@ -67,7 +67,6 @@ func (p *Pool) Start(ctx context.Context) {
 		ticker := time.NewTicker(p.client.CleanInterval)
 
 		defer func() {
-			ticker.Stop()
 			close(p.getSize)
 			close(p.repSize)
 			close(p.conChan)
@@ -82,19 +81,15 @@ func (p *Pool) Start(ctx context.Context) {
 			case <-p.getSize:
 				p.repSize <- p.size()
 			case conn := <-p.conChan:
-				if conn == nil {
-					p.connector(ctx, time.Now())
-				} else {
-					p.remove(conn)
-				}
-
+				p.remove(conn)
 				p.repChan <- struct{}{}
-			case <-p.done:
-				for _, conn := range p.connections {
-					conn.Close()
-				}
+			case exit := <-p.done:
+				ticker.Stop()
+				p.done <- true
 
-				return
+				if exit {
+					return
+				}
 			}
 		}
 	}()
@@ -175,7 +170,6 @@ func (p *Pool) remove(connection *Connection) {
 			filtered = append(filtered, conn)
 		} else {
 			p.disconnects++
-			conn.Close() //nolint:wsl
 		}
 	}
 
@@ -184,14 +178,25 @@ func (p *Pool) remove(connection *Connection) {
 
 // Shutdown and close all connections in the pool.
 func (p *Pool) Shutdown() {
-	if !p.shutdown {
-		// Send a signal to the connector to close all connections.
-		p.done <- struct{}{}
-		// Wait for the pool to close all connections.
-		<-p.done
-		// Set the shutdown flag to true.
-		p.shutdown = true
+	if p.shutdown {
+		return
 	}
+
+	// Send a signal to the connector to close all connections.
+	p.done <- false
+	// Wait for the pool to stop the connector ticker.
+	<-p.done
+	// Close all the connections.
+	for _, conn := range p.connections {
+		conn.Close()
+	}
+
+	// Close the pool.
+	p.done <- true
+	<-p.done
+
+	// Set the shutdown flag to true.
+	p.shutdown = true
 }
 
 func (ps *PoolSize) String() string {
