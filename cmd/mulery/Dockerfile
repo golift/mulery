@@ -1,5 +1,5 @@
 # Build a go app into a minimal docker image with timezone support and SSL cert chains.
-FROM golang:latest@sha256:db5d0afbfb4ab648af2393b92e87eaae9ad5e01132803d80caef91b5752d289c as builder
+FROM golang:latest@sha256:d1db785fb37feb87d9140d78ed4fb7c75ee787360366a9c5efe39c7a841a0277 as builder
 
 RUN mkdir -p $GOPATH/pkg/mod $GOPATH/bin $GOPATH/src /build
 COPY . /build
