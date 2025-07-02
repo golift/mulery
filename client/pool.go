@@ -21,6 +21,7 @@ type Pool struct {
 	shutdown    bool
 	lastTry     time.Time
 	backOff     time.Duration
+	ticker      *time.Ticker
 }
 
 // PoolSize represent the number of open connections per status.
@@ -56,6 +57,7 @@ func NewPool(client *Client, target string, secretKey string) *Pool {
 		conChan:     make(chan *Connection),
 		repChan:     make(chan struct{}),
 		backOff:     time.Second,
+		ticker:      time.NewTicker(client.CleanInterval),
 	}
 }
 
@@ -64,7 +66,7 @@ func (p *Pool) Start(ctx context.Context) {
 	p.connector(ctx, time.Now())
 
 	go func() {
-		ticker := time.NewTicker(p.client.CleanInterval)
+		p.ticker.Reset(p.client.CleanInterval)
 
 		defer func() {
 			close(p.getSize)
@@ -76,15 +78,18 @@ func (p *Pool) Start(ctx context.Context) {
 
 		for {
 			select {
-			case now := <-ticker.C:
-				p.connector(ctx, now)
+			case now := <-p.ticker.C:
+				if p.connector(ctx, now) {
+					p.ticker.Stop()
+					p.client.restart(ctx)
+				}
 			case <-p.getSize:
 				p.repSize <- p.size()
 			case conn := <-p.conChan:
 				p.remove(conn)
 				p.repChan <- struct{}{}
 			case exit := <-p.done:
-				ticker.Stop()
+				p.ticker.Stop()
 				p.done <- true
 
 				if exit {
@@ -99,13 +104,13 @@ func (p *Pool) Start(ctx context.Context) {
 // If the size of the pool is not equivalent to the desired size,
 // then N go functions are created that add additional pool connections.
 // If the connection fails, the connection is removed from the pool.
-func (p *Pool) connector(ctx context.Context, now time.Time) {
+func (p *Pool) connector(ctx context.Context, now time.Time) bool {
 	if p.backOff > p.client.MaxBackoff {
 		p.backOff = p.client.BackoffReset // keep bringing it back down.
 	}
 
 	if now.Sub(p.lastTry) < p.backOff {
-		return
+		return false
 	}
 
 	p.lastTry = now
@@ -123,10 +128,10 @@ func (p *Pool) connector(ctx context.Context, now time.Time) {
 		toCreate = p.client.PoolMaxSize - poolSize.Total
 	}
 
-	p.fillConnectionPool(ctx, now, toCreate)
+	return p.fillConnectionPool(ctx, now, toCreate)
 }
 
-func (p *Pool) fillConnectionPool(ctx context.Context, now time.Time, toCreate int) {
+func (p *Pool) fillConnectionPool(ctx context.Context, now time.Time, toCreate int) bool {
 	if p.client.RoundRobinConfig != nil {
 		if toCreate == 0 || len(p.connections) > 0 {
 			// Keep this up to date, or the logic will skip to the next server prematurely.
@@ -134,7 +139,7 @@ func (p *Pool) fillConnectionPool(ctx context.Context, now time.Time, toCreate i
 		} else if now.Sub(p.client.lastConn) > p.client.RetryInterval {
 			// We need more connections and the last successful connection was too long ago.
 			// Restart and skip to the next server in the round robin target list.
-			defer p.client.restart(ctx)
+			return true
 		}
 	}
 
@@ -152,6 +157,8 @@ func (p *Pool) fillConnectionPool(ctx context.Context, now time.Time, toCreate i
 		p.connections = append(p.connections, conn)
 		p.backOff = p.client.Backoff
 	}
+
+	return false
 }
 
 // Remove a connection from the pool.
