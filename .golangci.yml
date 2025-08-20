@@ -1,4 +1,4 @@
-version: "2"
+version: '2'
 linters:
   default: all
   disable:
@@ -8,6 +8,9 @@ linters:
     - nlreturn
     - tagalign
     - funcorder
+    - wsl_v5 # this one sucks compared to wsl.
+    - noinlineerr
+    - embeddedstructfieldcheck
   exclusions:
     presets:
       - comments

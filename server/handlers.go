@@ -29,7 +29,8 @@ func (s *Server) ProxyError(resp http.ResponseWriter, req *http.Request, err err
 }
 
 func (s *Server) HandleStats(resp http.ResponseWriter, req *http.Request) {
-	s.getStats <- clientID(req.Header.Get(s.Config.IDHeader))          // ask for stats.
+	s.getStats <- clientID(req.Header.Get(s.Config.IDHeader)) // ask for stats.
+
 	if err := json.NewEncoder(resp).Encode(<-s.repStats); err != nil { // send stats
 		http.Error(resp, err.Error(), http.StatusInternalServerError) // oops, error.
 	}

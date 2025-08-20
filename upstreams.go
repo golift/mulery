@@ -1,6 +1,7 @@
 package mulery
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -75,20 +76,28 @@ func (n *AllowedIPs) Contains(ip string) bool {
 
 // MakeIPs turns a list of CIDR strings, IPs or dns hostnames into a list of net.IPNet.
 // This "allowed" list is later used to check incoming IPs from web requests.
-// Starts a go routine that does periodic dns lookups for hostnames in the upstreams list.
+// Starts a go routine that does dns lookups for hostnames in the upstreams list.
 func MakeIPs(upstreams []string) *AllowedIPs {
+	return MakeIPsContext(context.Background(), upstreams)
+}
+
+// MakeIPsContext is like MakeIPs, but takes a context.
+func MakeIPsContext(ctx context.Context, upstreams []string) *AllowedIPs {
 	allowed := &AllowedIPs{
 		input: make([]string, len(upstreams)),
 		nets:  make([]*net.IPNet, len(upstreams)),
 	}
-	allowed.parseAndLookup(upstreams)
+	allowed.parseAndLookup(ctx, upstreams)
 
-	go allowed.Start()
+	go allowed.Start(ctx)
 
 	return allowed
 }
 
-func (n *AllowedIPs) parseAndLookup(upstreams []string) {
+// parseAndLookup turns a list of CIDR strings, IPs or dns hostnames into a list of net.IPNet.
+// This "allowed" list is later used to check incoming IPs from web requests.
+// Starts a go routine that does dns lookups for hostnames in the upstreams list.
+func (n *AllowedIPs) parseAndLookup(ctx context.Context, upstreams []string) {
 	for idx, ipAddr := range upstreams {
 		n.input[idx] = ipAddr
 
@@ -105,7 +114,7 @@ func (n *AllowedIPs) parseAndLookup(upstreams []string) {
 			continue // it's an ip, no dns lookup needed.
 		}
 
-		iplist, err := net.LookupHost(n.input[idx])
+		iplist, err := net.DefaultResolver.LookupHost(ctx, n.input[idx])
 		if err != nil || len(iplist) < 1 {
 			continue // keep what we had if the lookup is empty.
 		}
@@ -117,7 +126,7 @@ func (n *AllowedIPs) parseAndLookup(upstreams []string) {
 	}
 }
 
-func (n *AllowedIPs) Start() {
+func (n *AllowedIPs) Start(ctx context.Context) {
 	if n.askIP != nil {
 		panic("AllowedIPs already running!")
 	}
@@ -134,8 +143,10 @@ func (n *AllowedIPs) Start() {
 
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case <-ticker.C:
-			n.parseAndLookup(n.input) // update input w/ input.
+			n.parseAndLookup(ctx, n.input) // update input w/ input.
 		case askIP, ok := <-n.askIP:
 			if !ok {
 				return
