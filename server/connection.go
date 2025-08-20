@@ -199,6 +199,7 @@ func (c *Connection) Give() {
 func (c *Connection) Close(reason string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
 	c.close(reason)
 }
 
