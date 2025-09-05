@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.25.0
 
 require (
-	github.com/caddyserver/certmagic v0.24.0
+	github.com/caddyserver/certmagic v0.25.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lestrrat-go/apache-logformat/v2 v2.0.6
 	github.com/libdns/cloudflare v0.2.1
@@ -22,8 +22,8 @@ require (
 	github.com/grafana/regexp v0.0.0-20240518133315-a468a5bfb3bc // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/lestrrat-go/strftime v1.1.1 // indirect
-	github.com/libdns/libdns v1.1.0 // indirect
-	github.com/mholt/acmez/v3 v3.1.2 // indirect
+	github.com/libdns/libdns v1.1.1 // indirect
+	github.com/mholt/acmez/v3 v3.1.3 // indirect
 	github.com/miekg/dns v1.1.68 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
