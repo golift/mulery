@@ -8,7 +8,7 @@ require (
 	github.com/caddyserver/certmagic v0.25.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lestrrat-go/apache-logformat/v2 v2.0.6
-	github.com/libdns/cloudflare v0.2.1
+	github.com/libdns/cloudflare v0.2.2
 	github.com/prometheus/client_golang v1.23.2
 	golift.io/cnfgfile v0.0.0-20240713024420-a5436d84eb48
 	golift.io/rotatorr v0.0.0-20240723172740-cb73b9c4894c
