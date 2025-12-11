@@ -81,13 +81,16 @@ func (c *Connection) Connect(ctx context.Context) error {
 		ClientIDs: c.pool.client.ClientIDs,
 	}
 
+	_ = c.ws.SetWriteDeadline(time.Now().Add(mulch.HandshakeTimeout))
+
 	if err := c.ws.WriteJSON(greeting); err != nil {
 		c.pool.Remove(c)
 		return fmt.Errorf("[%s] greeting failure: %w", c.id, err)
 	}
 
-	// We are connected to the server, now start a go routine that waits for incoming server requests.
+	c.ws.SetWriteDeadline(time.Time{})
 	c.wg.Add(1)
+	// We are connected to the server, now start a go routine that waits for incoming server requests.
 	go c.serve()
 	go c.keepAlive()
 
