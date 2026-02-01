@@ -169,7 +169,7 @@ func (c *Connection) serve() {
 func (c *Connection) catchPanic() {
 	if r := recover(); r != nil {
 		// https://github.com/golang/go/blob/b100e127ca0e398fbb58d04d04e2443b50b3063e/src/runtime/chan.go#LL206C15-L206C15
-		if err, _ := r.(error); err != nil && err.Error() != "send on closed channel" { // ignore this specific panic.
+		if err, _ := r.(error); err != nil && !errors.Is(err, net.ErrClosed) { // ignore this specific panic.
 			c.pool.client.Errorf("[%s] panic error: %v\n%s", c.id, err, string(debug.Stack()))
 		} else if err == nil {
 			c.pool.client.Errorf("[%s] panic: %v\n%s", c.id, r, string(debug.Stack()))
