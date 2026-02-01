@@ -3,9 +3,11 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"strconv"
@@ -184,7 +186,10 @@ func (c *Connection) serveHandler() bool {
 
 	_, jsonRequest, err := c.ws.ReadMessage()
 	if err != nil {
-		c.pool.client.Errorf("[%s] While waiting for a tunnel request: %v", c.id, err)
+		if !errors.Is(err, net.ErrClosed) {
+			c.pool.client.Errorf("[%s] While waiting for a tunnel request: %v", c.id, err)
+		}
+
 		return false
 	}
 
