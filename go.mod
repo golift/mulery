@@ -1,6 +1,6 @@
 module golift.io/mulery
 
-go 1.24.9
+go 1.25.6
 
 toolchain go1.26.0
 
