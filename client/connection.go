@@ -37,6 +37,7 @@ type Connection struct {
 	pool      *Pool
 	ws        *websocket.Conn
 	status    int
+	mu        sync.Mutex // serializes close(setStatus) and sends on setStatus
 	setStatus chan int
 	getStatus chan int
 	wg        sync.WaitGroup
@@ -84,7 +85,7 @@ func (c *Connection) Connect(ctx context.Context) error {
 	}
 
 	if err := c.ws.WriteJSON(greeting); err != nil {
-		c.pool.Remove(c)
+		_ = c.ws.Close()
 		return fmt.Errorf("[%s] greeting failure: %w", c.id, err)
 	}
 
@@ -150,7 +151,9 @@ func (c *Connection) serve() {
 		c.pool.Remove(c)
 		c.pool.client.Printf("[%s] Disconnecting tunnel @ %s", c.id, c.pool.target)
 		// Stop the keep alive ticker.
+		c.mu.Lock()
 		close(c.setStatus)
+		c.mu.Unlock()
 		// Wait for it to finish.
 		<-c.getStatus
 		// Close the status channel.
@@ -289,11 +292,19 @@ func (c *Connection) error(msg string) bool {
 
 // Close the ws/tcp connection.
 func (c *Connection) Close() {
-	// Stop the keep alive ticker.
+	c.signalShutdown()
+	_ = c.ws.Close()
+	c.wg.Wait()
+}
+
+// signalShutdown tells keepAlive to stop via the setStatus channel.
+// Uses statusMu to prevent racing with serve()'s close(setStatus).
+// Recovers gracefully if serve() has already closed the channel.
+func (c *Connection) signalShutdown() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	defer func() { recover() }() //nolint:errcheck
+
 	c.setStatus <- SHUTDOWN
 	<-c.getStatus
-	// Close the websocket connection.
-	_ = c.ws.Close()
-	// Wait for both go routines to finish.
-	c.wg.Wait()
 }

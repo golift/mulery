@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -76,6 +77,7 @@ type Client struct {
 	target   int       // keeps track of active target in round robin mode.
 	client   *http.Client
 	dialer   *websocket.Dialer
+	mu       sync.Mutex
 	pools    map[string]*Pool
 }
 
@@ -132,6 +134,9 @@ func NewClient(config *Config) *Client {
 
 // Start the Proxy.
 func (c *Client) Start(ctx context.Context) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.RoundRobinConfig != nil {
 		c.startOnePool(ctx)
 	} else {
@@ -141,7 +146,7 @@ func (c *Client) Start(ctx context.Context) {
 
 func (c *Client) startAllPools(ctx context.Context) {
 	for _, target := range c.Targets {
-		if c.pools[target] != nil && !c.pools[target].shutdown {
+		if c.pools[target] != nil && !c.pools[target].shutdown.Load() {
 			panic("Attempt to overwrite active mulery client pool!")
 		}
 
@@ -159,7 +164,7 @@ func (c *Client) startOnePool(ctx context.Context) {
 	target := c.Targets[c.target]
 	c.lastConn = time.Now()
 
-	if c.pools[target] != nil && !c.pools[target].shutdown {
+	if c.pools[target] != nil && !c.pools[target].shutdown.Load() {
 		panic("Attempt to overwrite active mulery client pool!")
 	}
 
@@ -184,6 +189,9 @@ func (c *Client) restart(ctx context.Context) {
 
 // Shutdown the Proxy.
 func (c *Client) Shutdown() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	for _, pool := range c.pools {
 		pool.Shutdown()
 	}
@@ -196,11 +204,13 @@ func (c *Client) GetID() string {
 
 // PoolStats returns stats for all pools.
 func (c *Client) PoolStats() map[string]*PoolSize {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	sizes := map[string]*PoolSize{}
 
 	for socket, pool := range c.pools {
-		if pool.shutdown {
-			// Use internal method on dead pools.
+		if pool.shutdown.Load() {
 			sizes[socket] = pool.size()
 		} else {
 			sizes[socket] = pool.Size()
