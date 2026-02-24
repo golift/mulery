@@ -38,7 +38,7 @@ type Config struct {
 	// Email is used for acme certificate registration.
 	Email string `json:"email" toml:"email" yaml:"email" xml:"email"`
 	// DNS Names that we are allowed to create SSL certificates for.
-	SSLNames StringSlice `json:"sslNames" toml:"ssl_names" yaml:"sslNames" xml:"ssl_names"`
+	SSLNames []string `json:"sslNames" toml:"ssl_names" yaml:"sslNames" xml:"ssl_names"`
 	// Path to app log file.
 	LogFile string `json:"logFile" toml:"log_file" yaml:"logFile" xml:"log_file"`
 	// Number of log files to keep when rotating.
@@ -60,18 +60,6 @@ type Config struct {
 	allow    *AllowedIPs
 	log      *log.Logger
 	httpLog  *log.Logger
-}
-
-type StringSlice []string
-
-func (s StringSlice) Contains(str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
 }
 
 var ErrInvalidKey = errors.New("provided key is not authorized")

@@ -54,17 +54,17 @@ func (c *Config) SetupLogs() {
 }
 
 // Debugf writes log lines... to stdout and/or a file.
-func (c *Config) Debugf(msg string, v ...interface{}) {
+func (c *Config) Debugf(msg string, v ...any) {
 	c.log.Printf("[DEBUG] "+msg, v...)
 }
 
 // Printf writes log lines... to stdout and/or a file.
-func (c *Config) Printf(msg string, v ...interface{}) {
+func (c *Config) Printf(msg string, v ...any) {
 	c.log.Printf("[INFO] "+msg, v...)
 }
 
 // Errorf writes log lines... to stdout and/or a file.
-func (c *Config) Errorf(msg string, v ...interface{}) {
+func (c *Config) Errorf(msg string, v ...any) {
 	c.log.Printf("[ERROR] "+msg, v...)
 }
 
@@ -92,27 +92,29 @@ func (c *Config) ApacheLogFormat() string {
 		return `%h - - %t "%r" %>s %b ` + idh + ` "%{User-agent}i" - %{ms}Tms`
 	}
 
-	apacheFormat := `%h `
+	var apacheFormat strings.Builder
+	apacheFormat.WriteString(`%h `)
+
 	add := func(val string) {
 		if val == "" {
-			apacheFormat += "-"
+			apacheFormat.WriteString("-")
 		} else {
-			apacheFormat += "%{" + val + "}i"
+			apacheFormat.WriteString("%{" + val + "}i")
 		}
 	}
 
 	add(c.LogHeaders["uid"])
-	apacheFormat += " "
+	apacheFormat.WriteString(" ")
 	add(c.LogHeaders["name"])
-	apacheFormat += ` %t "%r" %>s %b "`
+	apacheFormat.WriteString(` %t "%r" %>s %b "`)
 	add(c.IDHeader)
-	apacheFormat += `" "%{User-agent}i" - %{ms}Tms`
+	apacheFormat.WriteString(`" "%{User-agent}i" - %{ms}Tms`)
 
 	for name, val := range c.LogHeaders {
 		if name != "uid" && name != "name" {
-			apacheFormat += ` "` + name + `:%{` + val + `}i"`
+			apacheFormat.WriteString(` "` + name + `:%{` + val + `}i"`)
 		}
 	}
 
-	return apacheFormat
+	return apacheFormat.String()
 }
