@@ -920,10 +920,12 @@ func TestRoundRobin_SwitchesTarget(t *testing.T) {
 	defer c.Shutdown()
 
 	// Wait for connection to first target.
-	fs1.waitForConns(t, 1)
+	serverConns := fs1.waitForConns(t, 1)
 
-	// Close server1 entirely to force failover.
+	// Close the listener to prevent reconnections, then close the hijacked
+	// WebSocket connections (httptest.Server.Close does not close hijacked conns).
 	fs1.ts.Close()
+	serverConns[0].ws.Close()
 
 	// Wait for client to switch to second target.
 	fs2.waitForConns(t, 1)
