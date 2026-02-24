@@ -16,6 +16,27 @@ linters:
       - comments
       - legacy
       - std-error-handling
+    rules:
+      - path: server/server_test\.go
+        linters:
+          - bodyclose
+          - cyclop
+          - dupl
+          - err113
+          - errcheck
+          - errchkjson
+          - funlen
+          - gocognit
+          - goconst
+          - maintidx
+          - mnd
+          - noctx
+          - revive
+          - testpackage
+          - unparam
+          - varnamelen
+          - wrapcheck
+          - wsl
 formatters:
   enable:
     - gci

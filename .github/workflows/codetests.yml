@@ -16,7 +16,7 @@ jobs:
           go-version-file: 'go.mod'
       - name: go-test
         run: |
-          go test ./...
+          go test -covermode=atomic ./...
 
   codespell:
     runs-on: ubuntu-latest
