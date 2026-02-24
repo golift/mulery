@@ -652,11 +652,7 @@ func TestConcurrentRequests(t *testing.T) {
 	results := make(chan int, numRequests)
 
 	for range numRequests {
-		reqWg.Add(1)
-
-		go func() {
-			defer reqWg.Done()
-
+		reqWg.Go(func() {
 			resp, err := doProxyRequest(env, testClientID, http.MethodGet, "")
 			if err != nil {
 				return
@@ -666,7 +662,7 @@ func TestConcurrentRequests(t *testing.T) {
 
 			_, _ = io.ReadAll(resp.Body)
 			results <- resp.StatusCode
-		}()
+		})
 	}
 
 	reqWg.Wait()
@@ -713,11 +709,7 @@ func TestConcurrentClients(t *testing.T) {
 	var clientWg sync.WaitGroup
 
 	for _, c := range clients {
-		clientWg.Add(1)
-
-		go func() {
-			defer clientWg.Done()
-
+		clientWg.Go(func() {
 			go serveOneRequestQuiet(c.ws, fakeClientResponse{
 				StatusCode: http.StatusOK,
 				Body:       "hello-" + c.id,
@@ -733,7 +725,7 @@ func TestConcurrentClients(t *testing.T) {
 			body, _ := io.ReadAll(resp.Body)
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 			assert.Equal(t, "hello-"+c.id, string(body))
-		}()
+		})
 	}
 
 	clientWg.Wait()
@@ -898,12 +890,9 @@ func TestConnectionTakeGiveClose(t *testing.T) {
 	taken := make(chan *Connection, 5)
 
 	for range 5 {
-		takeWg.Add(1)
-
-		go func() {
-			defer takeWg.Done()
+		takeWg.Go(func() {
 			taken <- conn.Take()
-		}()
+		})
 	}
 
 	takeWg.Wait()
@@ -926,12 +915,9 @@ func TestConnectionTakeGiveClose(t *testing.T) {
 	var closeWg sync.WaitGroup
 
 	for range 3 {
-		closeWg.Add(1)
-
-		go func() {
-			defer closeWg.Done()
+		closeWg.Go(func() {
 			conn.Close("concurrent-close")
-		}()
+		})
 	}
 
 	closeWg.Wait()

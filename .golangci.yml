@@ -17,9 +17,10 @@ linters:
       - legacy
       - std-error-handling
     rules:
-      - path: server/server_test\.go
+      - path: _test\.go
         linters:
           - bodyclose
+          - containedctx
           - cyclop
           - dupl
           - err113
@@ -28,6 +29,7 @@ linters:
           - funlen
           - gocognit
           - goconst
+          - ireturn
           - maintidx
           - mnd
           - noctx
