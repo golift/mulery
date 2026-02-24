@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -18,7 +20,9 @@ type Pool struct {
 	repSize     chan *PoolSize
 	conChan     chan *Connection
 	repChan     chan struct{}
-	shutdown    bool
+	connSnap    chan []*Connection
+	shutdown    atomic.Bool
+	shutdownNow sync.Once
 	lastTry     time.Time
 	backOff     time.Duration
 	ticker      *time.Ticker
@@ -56,6 +60,7 @@ func NewPool(client *Client, target string, secretKey string) *Pool {
 		repSize:     make(chan *PoolSize),
 		conChan:     make(chan *Connection),
 		repChan:     make(chan struct{}),
+		connSnap:    make(chan []*Connection, 1),
 		backOff:     time.Second,
 		ticker:      time.NewTicker(client.CleanInterval),
 	}
@@ -73,6 +78,7 @@ func (p *Pool) Start(ctx context.Context) {
 			close(p.repSize)
 			close(p.conChan)
 			close(p.repChan)
+			close(p.connSnap)
 			close(p.done)
 		}()
 
@@ -95,6 +101,10 @@ func (p *Pool) Start(ctx context.Context) {
 				if exit {
 					return
 				}
+				// Create a copy that can be used to shutdown all the connections without returning our pointer.
+				snapshot := make([]*Connection, len(p.connections))
+				copy(snapshot, p.connections)
+				p.connSnap <- snapshot
 			}
 		}
 	}()
@@ -163,7 +173,7 @@ func (p *Pool) fillConnectionPool(ctx context.Context, now time.Time, toCreate i
 
 // Remove a connection from the pool.
 func (p *Pool) Remove(conn *Connection) {
-	if !p.shutdown {
+	if !p.shutdown.Load() {
 		p.conChan <- conn
 		<-p.repChan
 	}
@@ -184,26 +194,28 @@ func (p *Pool) remove(connection *Connection) {
 }
 
 // Shutdown and close all connections in the pool.
+// Safe to call concurrently and multiple times.
 func (p *Pool) Shutdown() {
-	if p.shutdown {
-		return
-	}
+	p.shutdownNow.Do(func() {
+		// Send a signal to the connector to stop the ticker.
+		p.done <- false
+		<-p.done
 
-	// Send a signal to the connector to close all connections.
-	p.done <- false
-	// Wait for the pool to stop the connector ticker.
-	<-p.done
-	// Close all the connections.
-	for _, conn := range p.connections {
-		conn.Close()
-	}
+		// Receive a snapshot of connections from the pool goroutine.
+		// This avoids a data race on p.connections (owned by the pool goroutine).
+		conns := <-p.connSnap
 
-	// Close the pool.
-	p.done <- true
-	<-p.done
+		// Set shutdown before closing connections so Remove() skips the channel send.
+		p.shutdown.Store(true)
 
-	// Set the shutdown flag to true.
-	p.shutdown = true
+		for _, conn := range conns {
+			conn.Close()
+		}
+
+		// Signal the pool goroutine to exit.
+		p.done <- true
+		<-p.done
+	})
 }
 
 func (ps *PoolSize) String() string {
@@ -222,13 +234,13 @@ func (p *Pool) size() *PoolSize {
 	poolSize.Total = len(p.connections)
 	poolSize.Disconnects = p.disconnects
 	poolSize.LastTry = p.lastTry
-	poolSize.Active = !p.shutdown
+	poolSize.Active = !p.shutdown.Load()
 
-	if poolSize.LastConn = p.lastTry; !p.shutdown && p.client.RoundRobinConfig != nil {
+	if poolSize.LastConn = p.lastTry; !p.shutdown.Load() && p.client.RoundRobinConfig != nil {
 		poolSize.LastConn = p.client.lastConn
 	}
 
-	if p.shutdown {
+	if p.shutdown.Load() {
 		return poolSize
 	}
 
