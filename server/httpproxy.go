@@ -27,15 +27,13 @@ func (c *Connection) catchProxyPanic() {
 
 // getNextResponse waits for another upstream response, or for the client to give up.
 func (c *Connection) getNextResponse(ctx context.Context, ioCh chan io.Reader) error {
-	defer c.catchProxyPanic()
-
-	for {
-		select {
-		case c.nextResponse <- ioCh:
-			return nil
-		case <-ctx.Done():
-			return fmt.Errorf("http client gave up waiting for remote: %w", ctx.Err())
-		}
+	select {
+	case c.nextResponse <- ioCh:
+		return nil
+	case <-c.done:
+		return ErrConnClosed
+	case <-ctx.Done():
+		return fmt.Errorf("http client gave up waiting for remote: %w", ctx.Err())
 	}
 }
 

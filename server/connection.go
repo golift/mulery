@@ -31,6 +31,10 @@ type Connection struct {
 	idleSince time.Time
 	lock      sync.RWMutex
 	requests  int
+	// done is closed when the connection is shutting down.
+	// It signals read() and getNextResponse() to stop without racing
+	// on the nextResponse channel.
+	done chan struct{}
 	// nextResponse is the channel to wait for an HTTP response.
 	//
 	// The `read` function waits to receive the HTTP response as a separate thread reader.
@@ -69,6 +73,7 @@ func NewConnection(pool *Pool, sock *websocket.Conn) *Connection {
 		status:       Idle,
 		pool:         pool,
 		sock:         sock,
+		done:         make(chan struct{}),
 		nextResponse: make(chan chan io.Reader),
 	}
 	// Mark connection as ready for use.
@@ -124,8 +129,10 @@ func (c *Connection) read() {
 		// Next, it waits to receive the value from the Connection.proxyRequest function.
 		// that is invoked in the "server" thread.
 		// https://github.com/hgsgtk/wsp/blob/29cc73bbd67de18f1df295809166a7a5ef52e9fa/server/connection.go#L157
-		if resp = <-c.nextResponse; resp == nil {
-			return // We have been unlocked by Close().
+		select {
+		case resp = <-c.nextResponse:
+		case <-c.done:
+			return // Connection is closing.
 		}
 
 		// Send the reader back to Connection.proxyRequest.
@@ -211,8 +218,8 @@ func (c *Connection) close(reason string) {
 
 	c.pool.Printf("Closing connection from %s [%s], connected: %s, requests: %d, reason: %s",
 		c.pool.id, c.sock.RemoteAddr(), time.Since(c.connected).Round(time.Second), c.requests, reason)
-	// Unlock a possible wild read() message.
-	close(c.nextResponse)
+	// Signal read() and getNextResponse() to stop.
+	close(c.done)
 	// Close the underlying TCP connection.
 	c.sock.Close()
 	// This must be executed *before* lock.Unlock().

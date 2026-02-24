@@ -53,11 +53,6 @@ func (s *Server) HandleRequest(name string) http.Handler {
 			}
 		}
 
-		if len(s.pools) == 0 {
-			s.ProxyError(resp, req, fmt.Errorf("%w: no pools registered", ErrNoProxyTarget), "")
-			return
-		}
-
 		clientID, err := s.getClientID(req)
 		if err != nil {
 			s.ProxyError(resp, req, err, "")

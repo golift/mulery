@@ -184,7 +184,8 @@ func (pool *Pool) Size(now time.Time) *PoolSize {
 	return <-pool.getSize
 }
 
-// size return the number of connection in each state in the pool. not thread safe.
+// size return the number of connection in each state in the pool.
+// Must hold connection read locks when accessing mutable connection fields.
 func (pool *Pool) size(now time.Time) *PoolSize {
 	size := PoolSize{
 		Total:  len(pool.connections),
@@ -193,6 +194,7 @@ func (pool *Pool) size(now time.Time) *PoolSize {
 	}
 
 	for idx, connection := range pool.connections {
+		connection.lock.RLock()
 		size.Conns[idx] = &ConnStats{
 			Remote:    connection.sock.RemoteAddr().String(),
 			Connected: connection.connected,
@@ -206,6 +208,8 @@ func (pool *Pool) size(now time.Time) *PoolSize {
 		case Busy:
 			size.Busy++
 		}
+
+		connection.lock.RUnlock()
 	}
 
 	return &size
