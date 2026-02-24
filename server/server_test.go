@@ -519,16 +519,16 @@ func TestHandleRequest_WithIDHeader(t *testing.T) {
 
 	env := newTestServer(t, testSecret, testIDHeader)
 
-	clientA := "client-A"
+	client := "client-A"
 	clientB := "client-B"
 
-	wsA := connectClient(t, env, clientA, testSecret, 5)
+	wsA := connectClient(t, env, client, testSecret, 5)
 	defer wsA.Close()
 
 	wsB := connectClient(t, env, clientB, testSecret, 5)
 	defer wsB.Close()
 
-	waitForPool(t, env, clientA)
+	waitForPool(t, env, client)
 	waitForPool(t, env, clientB)
 
 	go serveOneRequestQuiet(wsB, fakeClientResponse{
