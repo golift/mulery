@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -51,6 +52,7 @@ type Server struct {
 	repPool     chan *Pool
 	getStats    chan clientID
 	repStats    chan *Stats
+	shutdownNow sync.Once
 }
 
 type Stats struct {

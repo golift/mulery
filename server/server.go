@@ -14,6 +14,7 @@ var (
 	ErrNoClientID    = errors.New("required client id header is missing")
 	ErrNoProxyTarget = errors.New("no proxy target found for request")
 	ErrInvalidData   = errors.New("invalid data received")
+	ErrConnClosed    = errors.New("connection closed while waiting for remote response")
 )
 
 // StartDispatcher dispatches connections from available pools to client requests.
@@ -65,15 +66,15 @@ func (s *Server) StartDispatcher() {
 // poolStats provides data about running pools and connections.
 // Useful for a web handler to show an operator what's happening.
 func (s *Server) poolStats(cID clientID) map[clientID]any {
+	now := time.Now()
+
 	if cID != "" {
 		if s.pools[cID] == nil {
 			return map[clientID]any{"id not found": nil}
 		}
 
-		return map[clientID]any{cID: s.pools[cID].size(time.Now())}
+		return map[clientID]any{cID: s.pools[cID].Size(now)}
 	}
-
-	now := time.Now()
 
 	pools := make(map[clientID]any, len(s.pools))
 	for target, pool := range s.pools {
@@ -83,7 +84,7 @@ func (s *Server) poolStats(cID clientID) map[clientID]any {
 			"idlePoolWait": len(pool.idle),
 			"idlePoolSize": cap(pool.idle),
 			"client":       pool.handshake,
-			"sizes":        pool.size(now),
+			"sizes":        pool.Size(now),
 		}
 	}
 
@@ -219,10 +220,12 @@ func (s *Server) registerPool(client *PoolConfig) {
 	s.pools[clientID(cID)].Register(client.Sock)
 }
 
-// Shutdown stops the Server.
+// Shutdown stops the Server. Safe to call multiple times.
 func (s *Server) Shutdown() {
-	// closing this channel makes shutdown() run.
-	close(s.newPool)
+	s.shutdownNow.Do(func() {
+		// closing this channel makes shutdown() run.
+		close(s.newPool)
+	})
 }
 
 func (s *Server) shutdown() {
