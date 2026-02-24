@@ -26,7 +26,7 @@ type Config struct {
 	// ClientIDs is simply saved with the connection data and available in stats.
 	// It may be empty and is not directly used by this library.
 	// It's for you to identify your clients with your own ID(s).
-	ClientIDs []interface{}
+	ClientIDs []any
 	// Websocket URLs this client shall connect to.
 	Targets []string
 	// Minimum count of idle connections to maintain at all times.

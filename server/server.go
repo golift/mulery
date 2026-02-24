@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"golift.io/mulery/mulch"
@@ -91,10 +92,7 @@ func (s *Server) poolStats(cID clientID) map[clientID]any {
 
 func (s *Server) threadStats() map[uint]uint64 {
 	threadCount := make(map[uint]uint64, len(s.threadCount))
-
-	for k, v := range s.threadCount {
-		threadCount[k] = v
-	}
+	maps.Copy(threadCount, s.threadCount)
 
 	return threadCount
 }
