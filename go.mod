@@ -5,7 +5,7 @@ go 1.25.6
 toolchain go1.26.0
 
 require (
-	github.com/caddyserver/certmagic v0.25.3
+	github.com/caddyserver/certmagic v0.25.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/lestrrat-go/apache-logformat/v2 v2.0.6
 	github.com/libdns/cloudflare v0.2.2
