@@ -123,7 +123,11 @@ func (s *Server) HandleRegister() http.Handler {
 		}
 
 		// 3. Register the connection into server pools.
-		s.newPool <- &PoolConfig{&greeting, sock, secret}
+		if !s.offerPool(&PoolConfig{&greeting, sock, secret}) {
+			sock.Close()
+
+			return
+		}
 
 		if s.metrics != nil {
 			s.metrics.Regs.WithLabelValues("success").Add(1)

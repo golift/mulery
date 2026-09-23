@@ -220,10 +220,29 @@ func (s *Server) registerPool(client *PoolConfig) {
 	s.pools[clientID(cID)].Register(client.Sock)
 }
 
+// offerPool hands a new client to the dispatcher.
+// A false return means the server is already shutting down.
+func (s *Server) offerPool(cfg *PoolConfig) bool {
+	s.poolMu.Lock()
+	defer s.poolMu.Unlock()
+
+	if s.poolClosed {
+		return false
+	}
+
+	s.newPool <- cfg
+
+	return true
+}
+
 // Shutdown stops the Server. Safe to call multiple times.
 func (s *Server) Shutdown() {
 	s.shutdownNow.Do(func() {
+		s.poolMu.Lock()
+		defer s.poolMu.Unlock()
+
 		// closing this channel makes shutdown() run.
+		s.poolClosed = true
 		close(s.newPool)
 	})
 }
