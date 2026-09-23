@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -1051,4 +1052,81 @@ func TestRegisterAfterShutdown(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("register handler hung after shutdown")
 	}
+}
+
+// holdBeforePoolLookup blocks a dispatcher inside dispatchRequest, before it
+// sends on getPool. That lets a test shut the main loop down first.
+type holdBeforePoolLookup struct {
+	at   chan struct{}
+	hold chan struct{}
+}
+
+func (h *holdBeforePoolLookup) Debugf(format string, _ ...any) {
+	if !strings.Contains(format, "dispatchRequest: 1 ask") {
+		return
+	}
+
+	h.at <- struct{}{}
+	<-h.hold
+}
+
+func (h *holdBeforePoolLookup) Errorf(string, ...any) {}
+
+func (h *holdBeforePoolLookup) Printf(string, ...any) {}
+
+// TestShutdownDuringPoolLookup shuts the dispatcher down while a worker is
+// about to ask for a pool. The drain must answer that lookup and still wait
+// for the worker's nil completion, instead of treating the lookup as completion.
+func TestShutdownDuringPoolLookup(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		hold := make(chan struct{})
+		at := make(chan struct{})
+		logger := &holdBeforePoolLookup{at: at, hold: hold}
+
+		config := NewConfig()
+		config.Dispatchers = 1
+		config.Logger = logger
+
+		srv := &Server{
+			Config:      config,
+			newPool:     make(chan *PoolConfig, 1),
+			dispatcher:  make(chan *dispatchRequest),
+			pools:       make(map[clientID]*Pool),
+			threadCount: make(map[uint]uint64),
+			getPool:     make(chan *getPoolRequest),
+			repPool:     make(chan *Pool),
+			getStats:    make(chan clientID),
+			repStats:    make(chan *Stats),
+		}
+
+		done := make(chan struct{})
+
+		go func() {
+			srv.StartDispatcher()
+			close(done)
+		}()
+
+		// Park the main loop so it cannot take the lookup or the shutdown.
+		srv.getStats <- ""
+
+		srv.dispatcher <- &dispatchRequest{
+			connection: make(chan *Connection),
+			client:     "late",
+		}
+		<-at
+
+		srv.Shutdown()
+		<-srv.repStats
+		synctest.Wait()
+
+		close(hold)
+
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("dispatcher did not finish after an in-flight pool lookup")
+		}
+	})
 }

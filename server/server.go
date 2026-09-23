@@ -250,8 +250,19 @@ func (s *Server) Shutdown() {
 func (s *Server) shutdown() {
 	close(s.dispatcher)
 
-	for i := s.Config.Dispatchers; i > 0; i-- {
-		<-s.getPool // wait for dispatchers to finish.
+	// Workers send nil on getPool after they leave the dispatcher loop.
+	// A lookup still inside dispatchRequest can also be sitting on that channel.
+	// Answer those with a nil pool so the worker can exit and send its nil.
+	var finished uint
+	for finished < s.Config.Dispatchers {
+		req := <-s.getPool
+		if req == nil {
+			finished++
+
+			continue
+		}
+
+		s.repPool <- nil
 	}
 
 	close(s.getPool)
