@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -986,4 +988,67 @@ func TestShutdownIdempotent(t *testing.T) {
 	env.srv.Shutdown()
 	env.srv.Shutdown()
 	<-env.done
+}
+
+// TestRegisterAfterShutdown dials a client, shuts the server down while that
+// handler is still waiting for its greeting, then sends the greeting.
+// The register must reject the socket and return.
+func TestRegisterAfterShutdown(t *testing.T) {
+	t.Parallel()
+
+	env := newTestServer(t, testSecret, testIDHeader)
+
+	wsURL := strings.Replace(env.ts.URL, "http://", "ws://", 1) + "/register"
+	header := http.Header{}
+	header.Set(mulch.SecretKeyHeader, testSecret)
+
+	conn, resp, err := env.dialer.Dial(wsURL, header)
+	require.NoError(t, err)
+
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	t.Cleanup(func() { conn.Close() })
+
+	env.srv.Shutdown()
+
+	select {
+	case <-env.done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("dispatcher did not stop")
+	}
+
+	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(2*time.Second)))
+	err = conn.WriteJSON(&mulch.Handshake{
+		ID:      testClientID,
+		Name:    "late-register",
+		Size:    1,
+		MaxSize: 2,
+	})
+	require.NoError(t, err)
+
+	readErr := make(chan error, 1)
+
+	go func() {
+		_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+
+		_, _, err := conn.ReadMessage()
+		readErr <- err
+	}()
+
+	select {
+	case err := <-readErr:
+		require.Error(t, err)
+
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			t.Fatal("register handler did not close the socket after shutdown")
+		}
+
+		var closeErr *websocket.CloseError
+		require.ErrorAs(t, err, &closeErr)
+	case <-time.After(3 * time.Second):
+		t.Fatal("register handler hung after shutdown")
+	}
 }

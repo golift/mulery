@@ -41,6 +41,9 @@ type Server struct {
 	// In pools, keep connections with WebSocket peers.
 	pools   map[clientID]*Pool
 	newPool chan *PoolConfig
+	// poolMu keeps a register send from racing Shutdown's close of newPool.
+	poolMu     sync.Mutex
+	poolClosed bool
 	// Through dispatcher channel it communicates between "http server" thread and "dispatcher" thread.
 	// "server" thread sends the value to this channel when accepting requests in the endpoint /requests,
 	// and "dispatcher" thread reads this channel.
