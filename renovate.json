@@ -2,7 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "forkProcessing": "enabled",
   "extends": [
-    "config:base",
+    "config:recommended",
     "default:automergeDigest",
     "helpers:pinGitHubActionDigestsToSemver"
   ],
