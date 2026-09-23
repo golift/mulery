@@ -391,7 +391,7 @@ func TestCustomHandler(t *testing.T) {
 		cfg.Handler = func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Custom", "handler-value")
 			w.WriteHeader(http.StatusAccepted)
-			fmt.Fprint(w, "custom response for "+r.URL.Path)
+			fmt.Fprint(w, "custom response for "+r.URL.Path) //nolint:gosec // G705: test handler echoes the request path.
 		}
 	})
 
@@ -606,7 +606,7 @@ func TestConcurrentRequests(t *testing.T) {
 	upstream := newUpstream(t, func(w http.ResponseWriter, r *http.Request) {
 		reqCount.Add(1)
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "response for %s", r.URL.Path)
+		fmt.Fprintf(w, "response for %s", r.URL.Path) //nolint:gosec // G705: test handler echoes the request path.
 	})
 
 	fs := newFakeServer(t, testSecret)
@@ -667,7 +667,7 @@ func TestConcurrentRequests_CustomHandler(t *testing.T) {
 		cfg.Handler = func(w http.ResponseWriter, r *http.Request) {
 			handleCount.Add(1)
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, "handled %s", r.URL.Path)
+			fmt.Fprintf(w, "handled %s", r.URL.Path) //nolint:gosec // G705: test handler echoes the request path.
 		}
 	})
 

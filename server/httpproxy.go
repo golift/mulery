@@ -102,7 +102,7 @@ func (c *Connection) sendProxyRequestBody(req *http.Request) error {
 func (c *Connection) getProxyResponse(req *http.Request) ([]byte, error) {
 	defer c.catchProxyPanic()
 
-	responseChannel := make(chan (io.Reader))
+	responseChannel := make(chan io.Reader)
 	// Notify the read() goroutine that we are done reading the response.
 	defer close(responseChannel)
 
@@ -150,7 +150,7 @@ func (c *Connection) copyProxyResponseBody(resp http.ResponseWriter, req *http.R
 
 	// Get the HTTP Response body from the peer.
 	// Send a new channel to the read() goroutine to get the next message reader.
-	responseBodyChannel := make(chan (io.Reader))
+	responseBodyChannel := make(chan io.Reader)
 	defer close(responseBodyChannel)
 
 	if err := c.getNextResponse(req.Context(), responseBodyChannel); err != nil {
