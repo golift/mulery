@@ -1,47 +1,65 @@
 name: test-and-lint
-on: push
+on:
+  pull_request:
+    branches:
+    - main
 permissions:
   contents: read
 jobs:
-  gotest:
-    # description: "Runs `go test` against 3 operating systems."
-    strategy:
-      matrix:
-        os: [ubuntu, macos, windows]
-    runs-on: ${{ matrix.os }}-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: 'go.mod'
-      - name: go-test
-        run: |
-          go test -covermode=atomic ./...
-
   codespell:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: codespell-project/actions-codespell@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: codespell-project/actions-codespell@e3258cca84ce02b0bb36a3d41f2c18f719a0cc1a # v2.4.3
         with:
-          check_hidden: true
-          skip: .git,go.sum,go.mod
+          skip: .git,go.sum
           ignore_words_list: flate
-
-  golangci:
+  # Runs `go test` against 3 operating systems.
+  gotest:
     strategy:
       matrix:
-        os: [linux, windows]
+        os: [macos, windows, ubuntu]
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: go-test
+        run: 	go test -race -covermode=atomic '-test.v' ./...
+  # Runs golangci-lint on macos against freebsd and macos.
+  golangci-darwin:
+    strategy:
+      matrix:
+        os: [darwin, freebsd]
+    name: golangci-lint
+    runs-on: macos-latest
+    env:
+      GOOS: ${{ matrix.os }}
+    steps:
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13
+  # Runs golangci-lint on linux against linux and windows.
+  golangci-linux:
+    strategy:
+      matrix:
+        os: [windows, linux]
     name: golangci-lint
     runs-on: ubuntu-latest
     env:
       GOOS: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: 'go.mod'
+          go-version: stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v2.9
+          version: v2.13

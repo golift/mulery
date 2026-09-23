@@ -4,7 +4,9 @@ linters:
   disable:
     - depguard
     - exhaustive
-    - exhaustruct
+    - exhaustruct # deprecated.
+    - exhaustruct_v5 # Config and http.Client are filled a field at a time.
+    - gomodguard # deprecated.
     - nlreturn
     - tagalign
     - funcorder
