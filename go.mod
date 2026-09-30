@@ -11,7 +11,7 @@ require (
 	github.com/libdns/cloudflare v0.2.2
 	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.12.1
-	golift.io/cnfgfile v0.0.0-20240713024420-a5436d84eb48
+	golift.io/cnfgfile v0.1.0
 	golift.io/rotatorr v0.0.0-20260217050959-f6ac6fc7b38e
 )
 
