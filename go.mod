@@ -12,7 +12,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/stretchr/testify v1.12.1
 	golift.io/cnfgfile v0.1.0
-	golift.io/rotatorr v0.0.0-20260217050959-f6ac6fc7b38e
+	golift.io/rotatorr v0.1.0
 )
 
 require (
